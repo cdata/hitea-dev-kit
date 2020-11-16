@@ -48,15 +48,15 @@ export class ToolBar extends LitElement {
       }
 
       #menu {
-        background-image: url('/images/toolMenu.png');
+        background-image: url('./images/toolMenu.png');
       }
 
       #pen {
-        background-image: url('/images/toolPencil.png');
+        background-image: url('./images/toolPencil.png');
       }
 
       #eraser {
-        background-image: url('/images/toolEraser.png');
+        background-image: url('./images/toolEraser.png');
       }
     `;
   }
