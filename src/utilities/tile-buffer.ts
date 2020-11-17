@@ -17,7 +17,7 @@ export const TILE_BUFFER_CONFIG_DEFAULTS: TileBufferConfig = {
   colorChannels: 4,
 };
 
-export class TileBuffer {
+export class TileBuffer extends EventTarget {
   get rows() {
     return this.#config.rows;
   }
@@ -50,6 +50,8 @@ export class TileBuffer {
   #selectAll: Selection;
 
   constructor(config: Partial<TileBufferConfig> = {}) {
+    super();
+
     this.#config = {
       ...TILE_BUFFER_CONFIG_DEFAULTS,
       ...config,
@@ -87,12 +89,15 @@ export class TileBuffer {
 
     // console.log('TileBuffer#setPixel', x, y, color);
     this.array.set(color, bufferIndex);
+
+    this.dispatchEvent(new CustomEvent('updated'));
   }
 
   drawSpriteSheet(
     spriteSheet: SpriteSheet,
     selection: Selection = this.#selectAll
   ) {
+    console.log('DRAW SPRITESHEET');
     // TODO: Multiple palette support
     const palette = spriteSheet.palettes[0];
 
@@ -125,5 +130,7 @@ export class TileBuffer {
         pixels.set([r, g, b, 1], bufferIndex);
       }
     }
+
+    this.dispatchEvent(new CustomEvent('updated'));
   }
 }

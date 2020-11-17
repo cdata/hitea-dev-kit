@@ -22,6 +22,12 @@
   <!--<link rel="manifest" href="gltf-wtf.webmanifest">-->
   <link rel="stylesheet" href="./global.css">
 
+  <script>
+    if (typeof requestIdleCallback === 'undefined') {
+      document.write('<script src="./node_modules/requestidlecallback/index.js"><\/script>');
+    }
+  </script>
+
 </head>
 
 <body>

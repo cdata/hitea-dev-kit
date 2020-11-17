@@ -7,7 +7,7 @@ const plugins = [
   resolve({browser: true, preferBuiltins: false}),
   sourcemaps(),
   replace({'Reflect.decorate': 'undefined'}),
-  terser(),
+  // terser(),
 ];
 
 const onwarn = (warning, warn) => {

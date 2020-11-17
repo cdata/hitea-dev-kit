@@ -4,11 +4,13 @@ import '../components/tool-bar.js';
 import '../components/tile-canvas.js';
 import '../components/color-palettes.js';
 import '../components/sprite-sheet-preview.js';
+import '../components/simple-dropzone.js';
 import {
   emptySelection,
   HiTeaDevState,
   Selection,
   SpriteSheetPalette,
+  Task,
   Tool,
 } from '../state/store.js';
 import {
@@ -17,10 +19,16 @@ import {
 } from '@0xcda7a/bag-of-tricks/lib/state/connect.js';
 import { select } from '@0xcda7a/bag-of-tricks/lib/state/decorators/select.js';
 import {
+  exportFile,
   paint,
   selectPaletteColor,
   selectTiles,
   selectTool,
+  setDragging,
+  unsetDragging,
+  receiveDroppedFile,
+  syncCanvas,
+  dequeueTask,
 } from '../state/actions.js';
 import { SelectionEvent } from '../components/tile-selector.js';
 import { PaletteColorSelectedEvent } from '../components/color-palettes.js';
@@ -29,6 +37,8 @@ import { TileBuffer } from '../utilities/tile-buffer.js';
 import { intToRgb } from '../utilities/color.js';
 import { ToolSelectEvent } from '../components/tool-bar.js';
 import { classMap } from 'lit-html/directives/class-map.js';
+import { DropzoneDropEvent } from '../components/simple-dropzone.js';
+import { Scheduler } from '../utilities/scheduler.js';
 
 @customElement('drawing-room-app')
 export class DrawingRoomApp extends connect<HiTeaDevState>()(LitElement) {
@@ -52,18 +62,45 @@ export class DrawingRoomApp extends connect<HiTeaDevState>()(LitElement) {
   @select<HiTeaDevState>((state) => state.drawingRoom.spriteSheet.palettes)
   palettes: SpriteSheetPalette[] = [];
 
+  @property({ type: Boolean })
+  @select<HiTeaDevState>((state) => state.drawingRoom.userIsDragging)
+  userIsDragging: boolean = false;
+
   @property({ type: Array })
-  @select<HiTeaDevState>(
-    (state) => state.drawingRoom.spriteSheet.layers[0].pixels
-  )
-  pixels: number[] = [];
+  @select<HiTeaDevState>((state) => state.drawingRoom.taskQueue)
+  taskQueue: Task[] = [];
 
   #tileBuffer = new TileBuffer();
+  #scheduler = new Scheduler(async () => {
+    if (this.taskQueue.length === 0) {
+      return;
+    }
+
+    const nextTask = this.taskQueue[0];
+
+    console.log(nextTask);
+    switch (nextTask.type) {
+      case 'sync':
+        const spriteSheet = this.store?.state.drawingRoom.spriteSheet;
+        if (spriteSheet != null) {
+          this.#tileBuffer.drawSpriteSheet(spriteSheet);
+        }
+        break;
+    }
+
+    await this.#completeTask(nextTask);
+  });
 
   #selectTiles = selfDispatch(selectTiles);
   #selectPaletteColor = selfDispatch(selectPaletteColor);
   #selectTool = selfDispatch(selectTool);
   #paint = selfDispatch(paint);
+  #setDragging = selfDispatch(setDragging);
+  #unsetDragging = selfDispatch(unsetDragging);
+  #receiveDroppedFile = selfDispatch(receiveDroppedFile);
+  #export = selfDispatch(exportFile);
+  #syncCanvas = selfDispatch(syncCanvas);
+  #completeTask = selfDispatch(dequeueTask);
 
   #onPaint = async (event: PaintEvent) => {
     const { x, y } = event.detail;
@@ -75,9 +112,17 @@ export class DrawingRoomApp extends connect<HiTeaDevState>()(LitElement) {
     const { r, g, b } = intToRgb(color);
 
     this.#tileBuffer.setPixel(x, y, [r, g, b, 255]);
-
-    // console.log(pixelsToHex(this.pixels));
   };
+
+  connectedCallback() {
+    super.connectedCallback();
+    this.#scheduler.start();
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    this.#scheduler.stop();
+  }
 
   static get styles() {
     return css`
@@ -191,11 +236,48 @@ export class DrawingRoomApp extends connect<HiTeaDevState>()(LitElement) {
       tile-selector {
         --cell-scale: 2;
       }
+
+      #dropzone {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(255, 152, 209, 0.5);
+
+        opacity: 0;
+        transition: opacity 0.3s;
+        pointer-events: none;
+        z-index: 2;
+      }
+
+      #dropzone.visible {
+        opacity: 1;
+        pointer-events: all;
+      }
     `;
   }
 
   render() {
     return html`
+      <simple-dropzone
+        id="dropzone"
+        @dragleave="${() => this.#unsetDragging()}"
+        @dropzone-drop="${async (event: DropzoneDropEvent) => {
+          await this.#receiveDroppedFile(event.detail.fileMap);
+          this.#syncCanvas();
+        }}"
+        class="${classMap({
+          visible: this.userIsDragging,
+        })}"
+      >
+        <div class="panel">
+          <img src="./images/drop.png" width="256" height="256" />
+        </div>
+      </simple-dropzone>
       <section
         id="menu"
         class="${classMap({
@@ -203,7 +285,8 @@ export class DrawingRoomApp extends connect<HiTeaDevState>()(LitElement) {
         })}"
       >
         <div class="panel">
-          <button disabled>Export</button>
+          <button disabled>Import</button>
+          <button @click="${() => this.#export()}">Export</button>
         </div>
       </section>
       <section
@@ -239,7 +322,6 @@ export class DrawingRoomApp extends connect<HiTeaDevState>()(LitElement) {
               <sprite-sheet-preview
                 .scale="${2}"
                 .tileBuffer="${this.#tileBuffer}"
-                .pixels="${this.pixels}"
               ></sprite-sheet-preview>
             </tile-selector>
           </div>
@@ -258,10 +340,10 @@ export class DrawingRoomApp extends connect<HiTeaDevState>()(LitElement) {
         </section>
       </section>
       <tile-canvas
-        .pixels="${this.pixels}"
         .palettes="${this.palettes}"
         .selection="${this.selection}"
         .tileBuffer="${this.#tileBuffer}"
+        @dragenter="${() => this.#setDragging()}"
         @paint="${this.#onPaint}"
       ></tile-canvas>
     `;

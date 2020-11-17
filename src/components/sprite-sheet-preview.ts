@@ -13,9 +13,6 @@ export class SpriteSheetPreview extends LitElement {
   @property({ type: Object })
   tileBuffer: TileBuffer | null = null;
 
-  @property({ type: Array })
-  pixels: number[] = [];
-
   #canvas = document.createElement('canvas');
   #animationFrameId: number | null = null;
 
@@ -60,6 +57,10 @@ export class SpriteSheetPreview extends LitElement {
     });
   };
 
+  #updatePixels = () => {
+    this.#virtualCanvas.updatePixels();
+  };
+
   #render = () => {
     this.#renderer.render(this.#scene, this.#camera);
     this.#animationFrameId = requestAnimationFrame(() => this.#render());
@@ -95,11 +96,17 @@ export class SpriteSheetPreview extends LitElement {
     }
 
     if (changedProperties.has('tileBuffer')) {
-      this.#updateTileBuffer();
-    }
-
-    if (changedProperties.has('pixels')) {
-      this.#virtualCanvas.updatePixels();
+      const oldTileBuffer = changedProperties.get('tileBuffer') as
+        | TileBuffer
+        | undefined;
+      if (oldTileBuffer != null) {
+        oldTileBuffer.removeEventListener('updated', this.#updatePixels);
+      }
+      const newTileBuffer = this.tileBuffer;
+      if (newTileBuffer != null) {
+        newTileBuffer.addEventListener('updated', this.#updatePixels);
+        this.#updateTileBuffer();
+      }
     }
   }
 

@@ -10,12 +10,11 @@ set -e
 
 NODE_MODULES_PATHS=(
   # "node_modules/@some/module/path"
+  "node_modules/requestidlecallback/index.js"
 );
 
-exit 0
-
 WATCH=false
-VERBASE=false
+VERBOSE=false
 
 function showUsage {
   echo 'Copies over node_modules files and optionally watches them for changes

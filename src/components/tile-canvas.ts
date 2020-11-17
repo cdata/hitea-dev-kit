@@ -34,9 +34,6 @@ export class TileCanvas extends LitElement {
   spriteSheet: SpriteSheet | null = null;
 
   @property({ type: Array })
-  pixels: number[] = [];
-
-  @property({ type: Array })
   palettes: SpriteSheetPalette[] = [];
 
   @property({ type: Object })
@@ -262,10 +259,20 @@ export class TileCanvas extends LitElement {
     super.updated(changedProperties);
 
     if (changedProperties.has('tileBuffer')) {
-      this.#updateTileBuffer();
+      const oldTileBuffer = changedProperties.get('tileBuffer') as
+        | TileBuffer
+        | undefined;
+      if (oldTileBuffer != null) {
+        oldTileBuffer.removeEventListener('updated', this.#updatePixels);
+      }
+      const newTileBuffer = this.tileBuffer;
+      if (newTileBuffer != null) {
+        newTileBuffer.addEventListener('updated', this.#updatePixels);
+        this.#updateTileBuffer();
+      }
     }
 
-    if (changedProperties.has('selection') || changedProperties.has('pixels')) {
+    if (changedProperties.has('selection')) {
       this.#updateSelection();
       this.#updatePixels();
     }

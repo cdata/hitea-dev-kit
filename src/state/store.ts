@@ -24,16 +24,32 @@ export interface SpriteSheetPalette {
   colors: number[];
 }
 
+export interface TileColorScheme {
+  transparentColor: number;
+  palette: string;
+}
+
 export interface SpriteSheetColorScheme {
   defaultPalette: string | null;
-  tiles: string[];
+  tiles: TileColorScheme[];
 }
 
 export interface SpriteSheet {
   palettes: SpriteSheetPalette[];
   layers: SpriteSheetLayer[];
   colorScheme: SpriteSheetColorScheme;
+  columns: number;
+  rows: number;
+  tilePixelWidth: number;
+  tilePixelHeight: number;
 }
+
+export interface SyncRequest {
+  type: 'sync';
+  selection?: Selection;
+}
+
+export type Task = SyncRequest;
 
 export interface DrawingRoomState {
   activeTool: Tool;
@@ -41,6 +57,8 @@ export interface DrawingRoomState {
   activePalette: number;
   selection: Selection;
   spriteSheet: SpriteSheet;
+  userIsDragging: boolean;
+  taskQueue: Task[];
 }
 
 export interface HiTeaDevState {
@@ -87,7 +105,13 @@ export const store = new Store<HiTeaDevState>(
       activeTool: 'pen',
       activePalette: 0,
       activeColor: 0,
+      userIsDragging: false,
+      taskQueue: [],
       spriteSheet: {
+        columns: 8,
+        rows: 16,
+        tilePixelWidth: 8,
+        tilePixelHeight: 8,
         palettes: [defaultPalette()],
         layers: [
           {
