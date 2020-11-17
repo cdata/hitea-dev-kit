@@ -1,0 +1,1 @@
+:root{--global-background-color:#5062aa;--default-text-color:#0c2231;--foreground-fill-color:#7cb7de;--accent-color:#d0b0dd}body,html{margin:0;height:100%;font-family:system-ui,sans serif;background:var(--global-background-color);color:var(--default-text-color)}drawing-room-app{height:100%}
